@@ -1,0 +1,147 @@
+---
+title: "Homework_5"
+author: "Christina Cui"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+### Name: Christina Cui
+### UT EID: cc75352
+### Github Link: https://github.com/ccui7247/homework5
+
+```{r setup, include = FALSE, message = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(mosaic)
+setwd('C:/Users/chris/OneDrive/Documents/2023-2024/SDS315/homeworks')
+
+letter_frequency <- read.csv("letter_frequencies.csv")
+
+```
+
+## **Problem 1: Iron Bank**
+
+```{r, message = FALSE}
+
+flagged_sim = do(100000)*nflip(n = 2021, prob = 0.024)
+
+ggplot(flagged_sim) + 
+  geom_histogram(aes(x = nflip))
+
+sum(flagged_sim >= 70)
+
+```
+
+The null hypothesis that I am testing is that the SEC flags securities trades from the Iron bank at the baseline rate of 2.4% for other traders in the long run. The test statistic used in this case is the number of trades from the Iron Bank that were flagged. In the data, 70 out of 2021 trades were flagged. The calculated p-value is 0.00197. This is probability of having observed our statistic, or any more extreme statistic, given that the null hypothesis is true. Because this value is less than p = 0.05, it is considered statistically significant; it is harder for the null hypothesis to explain the data. Thus, due to the p-value being relatively small, it is less likely to have our observed test statistic (or any more extreme statistic) when the null hypothesis is true, which makes the null hypothesis not very plausible. 
+
+***
+
+## **Problem 2: Health Inspections**
+
+```{r, message = FALSE}
+
+inspection_sim = do(100000)*nflip(n = 50, prob = 0.03)
+
+ggplot(inspection_sim) + 
+  geom_histogram(aes(x = nflip))
+
+sum(inspection_sim >= 8)
+
+```
+
+The null hypothesis I am testing is that, on average, Gourmet Bites' was issued health code violation at the same baseline rate of 3% for other restaurants in the city. The test statistic in this case is Gourmet Bites' inspections that resulted in health code violations out of their total inspections; out of their 50 inspections, 8 resulted in health code violations. The p-value calculated was 0.00016, and because this value is less than p = 0.05, it is considered statistically significant and is harder for the null hypothesis to explain the observed data (or even more extreme cases). Thus, due to the small p-value, it is less likely to have our observed test statistic or any more extreme statistic when the null hypothesis is true, which makes the null hypothesis not very plausible.
+
+*** 
+
+## **Problem 3: LLM Watermarking**
+
+
+### **Part A**
+
+```{r, message = FALSE}
+
+lines <- readLines("brown_sentences.txt")
+
+calculate_chi_squared = function(sentence, freq_table) {
+  
+  # Ensure letter frequencies are normalized and sum to 1
+  freq_table$Probability = freq_table$Probability / sum(freq_table$Probability)
+  
+  # Remove non-letters and convert to uppercase
+  clean_sentence = gsub("[^A-Za-z]", "", sentence)
+  clean_sentence = toupper(clean_sentence)
+  
+  # Count the occurrences of each letter in the sentence
+  observed_counts = table(factor(strsplit(clean_sentence, "")[[1]], levels = freq_table$Letter))
+  
+  # Calculate expected counts
+  total_letters = sum(observed_counts)
+  expected_counts = total_letters * freq_table$Probability
+  
+  # Chi-squared statistic
+  chi_squared_stat = sum((observed_counts - expected_counts)^2 / expected_counts)
+  
+  return(chi_squared_stat)
+}
+
+chi_sq <- rep(0, length(lines))
+for (i in 1:length(lines)) {
+  chi_sq[i] = calculate_chi_squared(lines[i], letter_frequency)
+}
+
+null_distribution <- data.frame(chi_sq = chi_sq)
+
+# Visualize the null distribution with a histogram
+ggplot(null_distribution, aes(x = chi_sq)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  ggtitle("Null Distribution of Chi-squared Statistics") +
+  labs(x = "Chi-squared Statistic", y = "Frequency")
+
+```
+
+***
+
+### **Part B**
+
+```{r, message = FALSE}
+
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+chi_sq_sentences <- rep(0, 10) 
+for (i in 1:10) {
+  chi_sq_sentences[i] = calculate_chi_squared(sentences[i], letter_frequency)
+  print(chi_sq_sentences[i])
+}
+
+
+p_values <- pchisq(chi_sq_sentences, df = 25, lower.tail = FALSE)
+
+# Round p-values to three decimal places
+rounded_p_values <- round(p_values, 3)
+
+# Create a table of sentences and p-values
+results_table <- data.frame(
+  Sentence = sentences,
+  P_Value = rounded_p_values
+)
+
+# Display the table
+print(results_table)
+
+```
+
+I believe the sixth sentence ("Feeling vexed...visit to Auckland") was produced by an LLM. Looking at the chi-squared statistics for each sentence based on the "typical" English letter distribution, the sixth sentence has a chi-squared value of around 96.453. Compared to all the other chi-squared values (which were all under 50), this value stood out to me as extremely high. Additionally, looking at the null distribution of chi-squared values from Part B, the frequency of sentences that have a chi-squared value of around 96.453 is very low; much of the distribution is skewed to the right, with a peak of a chi-squared value of less than 25. Finally, after creating a table of p-values for each sentence based on the null hypothesis that the sentences follow the "typical" English letter distribution based on the chi-squared values as the test statistic, the sixth sentence has a p-value of 0.000. This most likely means that the p-value was too small and thus rounded to 0, which is considered statistically significant and is harder for the null hypothesis to explain the observed data (or even more extreme cases). Due to the very small p-value, it is unlikely to have our observed test statistic or any more extreme statistic when the null hypothesis is true, which makes the null hypothesis not very plausible. Thus, it is likely that the sixth sentence does not follow the "typical" English letter distribution and is thus most likely the sentence that was generated by the LLM. 
